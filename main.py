@@ -1,48 +1,9 @@
-incomes = []
-expenses = []
-income_categories = [
-    "Salary (main job)",
-    "Freelance / Projects (side jobs, gigs)",
-    "Investments & Interest (deposits, stocks, cashback)",
-    "Gifts / Transfers (money from relatives/friends)",
-    "Selling items (used goods, property)",
-    "Other (casual income)"
-]
-
-expense_categories = [
-    "Groceries & Food (supermarkets, local markets)",
-    "Cafes & Restaurants (coffee, delivery, dining out)",
-    "Transportation (fuel, public transit, taxi, car maintenance)",
-    "Housing & Utilities (rent, utilities, internet)",
-    "Shopping & Clothing (electronics, clothes, home items)",
-    "Health & Fitness (pharmacies, doctors, gym)",
-    "Entertainment & Leisure (movies, hobbies, subscriptions)",
-    "Education & Growth (courses, books)",
-    "Gifts & Donations (holidays, charity)",
-    "Other / Unforeseen (miscellaneous expenses)"
-]
+from categories import income_categories, expense_categories
+from storage import save_data, load_data
+from finance import get_valid_int, get_transaction
 
 
-def get_transaction(categories_list):
-    print("\nSelect a category:")
-    for i, cat in enumerate(categories_list, start=1):
-        print(f"{i}. {cat}")
-
-    while True:
-        try:
-            num = int(input(f"Enter a category number (1-{len(categories_list)}): "))
-            if 1 <= num <= len(categories_list):
-                break
-            else:
-                print(f"Invalid number! Please enter a number between 1 and {len(categories_list)}.")
-        except ValueError:
-            print(f"Invalid number! Please enter a number between 1 and {len(categories_list)}.")
-
-
-    category_name = categories_list[num - 1]
-    amount = float(input("Enter amount: "))
-
-    return {"category": category_name, "amount": amount}
+incomes, expenses = load_data()
 
 while True:
     print("""\n==== FINANCE ACCOUNTING ====
@@ -51,25 +12,23 @@ while True:
     3. 📊 View
     4. 📈 Statistics
     5. 💰 Balance
-    6. 🏦 Savings
+    6. Settings
     7. 🚪 Exit""")
 
-    try:
-        choice = int(input("Enter your choice: "))
-    except ValueError:
-        print("Invalid input! Please enter a number from 1 to 7.")
-        continue
+    choice = get_valid_int("Enter your choice(1-7): ", 1, 7)
 
     match choice:
         case 1:
             transaction = get_transaction(income_categories)
             incomes.append(transaction)
-            print(f"✅ Income added: {transaction['category']} - {transaction['amount']}")
+            save_data(incomes, expenses)
+            print(f"✅ Income added: {transaction['category']} - {transaction['amount']} - {transaction['date']}")
 
         case 2:
             transaction = get_transaction(expense_categories)
             expenses.append(transaction)
-            print(f"✅ Expense added: {transaction['category']} - {transaction['amount']}")
+            save_data(incomes, expenses)
+            print(f"✅ Expense added: {transaction['category']} - {transaction['amount']} - {transaction['date']}")
 
         case 3:
             print("\n===Incomes===")
@@ -77,17 +36,45 @@ while True:
                 print("There is no income as yet.")
             else:
                 for item in incomes:
-                    print(f" - {item['category']}: {item['amount']}")
+                    print(f" - {item['category']}: {item['amount']} | {item['date']}")
 
             print("\n===Expenses===")
             if not expenses:
                 print("There is no expense as yet.")
             else:
                 for item in expenses:
-                    print(f" - {item['category']}: {item['amount']}")
-                    
+                    print(f" - {item['category']}: {item['amount']} | {item['date']}")
+
         case 4:
-            print("In development")
+            if not incomes and not expenses:
+                print("\nNo data available for statistics yet.")
+            else:
+                print("\n==== STATISTICS ====")
+
+                if expenses:
+                    total_exp = sum(item['amount'] for item in expenses)
+
+                    # 1. Групування
+                    category_totals = {}
+                    for item in expenses:
+                        cat = item['category']
+                        category_totals[cat] = category_totals.get(cat, 0) + item['amount']
+
+                    # 2. Вивід категорій та відсотків
+                    print("\n--- Expenses by Category ---")
+                    for cat, amount in category_totals.items():
+                        percentage = (amount / total_exp) * 100
+                        print(f" • {cat}: {amount:.2f} ({percentage:.1f}%)")
+
+                    # 3. Аналітика
+                    high_category = max(category_totals, key=category_totals.get)
+                    average_expense = total_exp / len(expenses)
+
+                    print("\n--- Highlights ---")
+                    print(f" 🔝 Top Category: {high_category} ({category_totals[high_category]:.2f})")
+                    print(f" 📊 Average Expense: {average_expense:.2f}")
+                else:
+                    print("\nNo expenses recorded yet.")
 
 
         case 5:
@@ -100,9 +87,45 @@ while True:
                   f"\nTotal expense: {total_exp}"
                   f"\nBalance: {balance}")
 
+        case 6:
+            while True:
+                print("""\n==== ⚙️ SETTINGS ====
+                1. ↩️ Delete last income entry
+                2. ↩️ Delete last expense entry
+                3. 🧹 Clear all data
+                4. ⬅️ Back to Main Menu""")
+
+                sub_choice = get_valid_int("Enter option (1-4): ", 1, 4)
+
+                if sub_choice == 1:
+                    if incomes:
+                        removed = incomes.pop()
+                        save_data(incomes, expenses)
+                        print(f"Deleted last income: {removed['category']} - {removed['amount']}")
+                    else:
+                        print("No income entries to delete!")
+
+                elif sub_choice == 2:
+                    if expenses:
+                        removed = expenses.pop()
+                        save_data(incomes, expenses)
+                        print(f"Deleted last expense: {removed['category']} - {removed['amount']}")
+                    else:
+                        print("No expense entries to delete!")
+
+                elif sub_choice == 3:
+                    confirm = input("Are you sure you want to delete ALL data? (yes/no): ").lower().strip()
+                    if confirm == "yes":
+                        incomes.clear()
+                        expenses.clear()
+                        save_data(incomes, expenses)
+                        print("All transaction data cleared!")
+                    else:
+                        print("Action cancelled.")
+
+                elif sub_choice == 4:
+                    break
+
         case 7:
             print("Thank you for using! Goodbye 👋")
             break
-
-        case _:
-            print("This feature is not yet available or you have selected the wrong item.")
